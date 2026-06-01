@@ -217,6 +217,16 @@ textarea:focus {
   color: #b42318;
 }
 
+.mode-note {
+  background: #fff8e6;
+  border: 1px solid #f3d58a;
+  border-radius: 12px;
+  color: #8a5a00;
+  font-size: 0.92rem;
+  font-weight: 800;
+  padding: 12px 14px;
+}
+
 .planning-form {
   display: grid;
   gap: 18px;

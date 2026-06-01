@@ -1,6 +1,6 @@
-import { useMemo } from 'react';
-import { getPlansForEmployee } from '../../services/plans/planService';
-import type { Dictionaries } from '../../types/domain';
+import { useEffect, useMemo, useState } from 'react';
+import { activeStorageAdapter } from '../../services/storage/storageAdapter';
+import type { CurrentPlan, Dictionaries } from '../../types/domain';
 
 type Props = {
   channelCode: string;
@@ -10,12 +10,25 @@ type Props = {
 };
 
 function HistoryView({ channelCode, dictionaries, employeeId, refreshToken }: Props) {
-  const plans = useMemo(() => {
+  const [plans, setPlans] = useState<CurrentPlan[]>([]);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
     if (!channelCode || !employeeId) {
-      return [];
+      setPlans([]);
+      return;
     }
 
-    return getPlansForEmployee(channelCode, employeeId).sort((a, b) => a.monthCode.localeCompare(b.monthCode));
+    activeStorageAdapter
+      .getCurrentPlansByEmployee(channelCode, employeeId)
+      .then((records) => {
+        setPlans(records.sort((a, b) => a.monthCode.localeCompare(b.monthCode)));
+        setError('');
+      })
+      .catch(() => {
+        setPlans([]);
+        setError('Не вдалося завантажити історію планів.');
+      });
   }, [channelCode, employeeId, refreshToken]);
 
   const monthNameByCode = new Map(dictionaries.months.map((month) => [month.monthCode, month.monthName]));
@@ -31,6 +44,8 @@ function HistoryView({ channelCode, dictionaries, employeeId, refreshToken }: Pr
 
       {!channelCode || !employeeId ? (
         <div className="empty-state">Оберіть канал збуту та ПІБ для перегляду історії.</div>
+      ) : error ? (
+        <div className="message message--error">{error}</div>
       ) : plans.length === 0 ? (
         <div className="empty-state">Для обраного користувача ще немає збережених планів.</div>
       ) : (

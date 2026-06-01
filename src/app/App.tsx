@@ -1,16 +1,25 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import Header from '../components/Header';
 import AdminPanel from '../features/admin/AdminPanel';
 import HistoryView from '../features/history/HistoryView';
 import PlanningForm from '../features/planning/PlanningForm';
-import { dictionaryRepository } from '../services/storage/localRepositories';
+import { demoDictionaries } from '../data/demoDictionaries';
+import { activeStorageAdapter, storageMode } from '../services/storage/storageAdapter';
 import type { Dictionaries } from '../types/domain';
 
 function App() {
-  const [dictionaries, setDictionaries] = useState<Dictionaries>(() => dictionaryRepository.get());
+  const [dictionaries, setDictionaries] = useState<Dictionaries>(demoDictionaries);
   const [selectedChannelCode, setSelectedChannelCode] = useState('');
   const [selectedEmployeeId, setSelectedEmployeeId] = useState('');
   const [refreshToken, setRefreshToken] = useState(0);
+  const [loadError, setLoadError] = useState('');
+
+  useEffect(() => {
+    activeStorageAdapter
+      .getDictionaries()
+      .then(setDictionaries)
+      .catch(() => setLoadError('Не вдалося завантажити довідники. Перевірте налаштування сховища даних.'));
+  }, []);
 
   const activeDictionaries = useMemo(() => ({
     channels: dictionaries.channels.filter((channel) => channel.isActive),
@@ -23,9 +32,10 @@ function App() {
     setSelectedEmployeeId(employeeId);
   }, []);
 
-  const handleDictionariesUpdated = (nextDictionaries: Dictionaries) => {
-    dictionaryRepository.replace(nextDictionaries);
-    setDictionaries(nextDictionaries);
+  const handleDictionariesUpdated = async (nextDictionaries: Dictionaries) => {
+    await activeStorageAdapter.replaceDictionaries(nextDictionaries);
+    const savedDictionaries = await activeStorageAdapter.getDictionaries();
+    setDictionaries(savedDictionaries);
     setSelectedChannelCode('');
     setSelectedEmployeeId('');
     setRefreshToken((value) => value + 1);
@@ -36,6 +46,11 @@ function App() {
       <Header />
 
       <main className="page-shell">
+        {storageMode === 'localStorage' && (
+          <div className="mode-note">Демо-режим: дані зберігаються локально в браузері.</div>
+        )}
+        {loadError && <div className="message message--error">{loadError}</div>}
+
         <section className="hero-card" aria-label="Огляд модуля">
           <div>
             <p className="section-kicker">Місячне планування</p>

@@ -1,13 +1,13 @@
-import { useMemo, useState, type FormEvent } from 'react';
+import { useEffect, useMemo, useState, type FormEvent } from 'react';
 import { appConfig } from '../../app/config';
 import { importDictionariesFromExcel } from '../dictionaries/importDictionaries';
 import { exportChangeLogCsv, exportCurrentPlansCsv } from '../../services/export/csvExport';
-import { plansRepository } from '../../services/storage/localRepositories';
-import type { Dictionaries, RecordFilters } from '../../types/domain';
+import { activeStorageAdapter, storageMode } from '../../services/storage/storageAdapter';
+import type { CurrentPlan, Dictionaries, RecordFilters } from '../../types/domain';
 
 type Props = {
   dictionaries: Dictionaries;
-  onDictionariesUpdated: (dictionaries: Dictionaries) => void;
+  onDictionariesUpdated: (dictionaries: Dictionaries) => Promise<void>;
   refreshToken: number;
 };
 
@@ -20,9 +20,22 @@ function AdminPanel({ dictionaries, onDictionariesUpdated, refreshToken }: Props
   const [importErrors, setImportErrors] = useState<string[]>([]);
   const [exportMonthCode, setExportMonthCode] = useState('');
   const [filters, setFilters] = useState<RecordFilters>({ monthCode: '', channelCode: '', employeeId: '' });
+  const [currentPlans, setCurrentPlans] = useState<CurrentPlan[]>([]);
+  const [adminError, setAdminError] = useState('');
 
-  const currentPlans = useMemo(() => plansRepository.getCurrentPlans(), [refreshToken, isUnlocked]);
-  const changeLog = useMemo(() => plansRepository.getChangeLog(), [refreshToken, isUnlocked]);
+  useEffect(() => {
+    if (!isUnlocked) {
+      return;
+    }
+
+    activeStorageAdapter
+      .getCurrentPlans()
+      .then((plans) => {
+        setCurrentPlans(plans);
+        setAdminError('');
+      })
+      .catch(() => setAdminError('Не вдалося завантажити адмінські записи.'));
+  }, [refreshToken, isUnlocked]);
 
   const employeesForFilter = dictionaries.employees.filter((employee) => (
     !filters.channelCode || employee.channelCode === filters.channelCode
@@ -60,8 +73,12 @@ function AdminPanel({ dictionaries, onDictionariesUpdated, refreshToken }: Props
     const result = await importDictionariesFromExcel(file);
 
     if (result.ok) {
-      onDictionariesUpdated(result.dictionaries);
-      setImportMessage('Довідники успішно оновлено.');
+      try {
+        await onDictionariesUpdated(result.dictionaries);
+        setImportMessage('Довідники успішно оновлено.');
+      } catch {
+        setImportErrors(['Не вдалося оновити довідники у сховищі даних.']);
+      }
     } else {
       setImportErrors(result.errors);
     }
@@ -74,6 +91,24 @@ function AdminPanel({ dictionaries, onDictionariesUpdated, refreshToken }: Props
     }
 
     return true;
+  };
+
+  const handleExportCurrentPlans = async () => {
+    if (!requireExportMonth()) {
+      return;
+    }
+
+    const plans = await activeStorageAdapter.getAdminCurrentPlansByMonth(exportMonthCode);
+    exportCurrentPlansCsv(plans, dictionaries, exportMonthCode);
+  };
+
+  const handleExportChangeLog = async () => {
+    if (!requireExportMonth()) {
+      return;
+    }
+
+    const records = await activeStorageAdapter.getAdminChangeLogByMonth(exportMonthCode);
+    exportChangeLogCsv(records, dictionaries, exportMonthCode);
   };
 
   return (
@@ -110,6 +145,11 @@ function AdminPanel({ dictionaries, onDictionariesUpdated, refreshToken }: Props
 
       {isOpen && isUnlocked && (
         <div className="admin-grid">
+          {storageMode === 'localStorage' && (
+            <div className="mode-note admin-card--wide">Демо-режим: дані зберігаються локально в браузері.</div>
+          )}
+          {adminError && <div className="message message--error admin-card--wide">{adminError}</div>}
+
           <article className="panel admin-card">
             <div className="section-heading">
               <div>
@@ -154,14 +194,14 @@ function AdminPanel({ dictionaries, onDictionariesUpdated, refreshToken }: Props
             <div className="admin-actions">
               <button
                 type="button"
-                onClick={() => requireExportMonth() && exportCurrentPlansCsv(currentPlans, dictionaries, exportMonthCode)}
+                onClick={handleExportCurrentPlans}
               >
                 Експорт актуальних планів
               </button>
               <button
                 className="button-secondary"
                 type="button"
-                onClick={() => requireExportMonth() && exportChangeLogCsv(changeLog, dictionaries, exportMonthCode)}
+                onClick={handleExportChangeLog}
               >
                 Експорт журналу змін
               </button>

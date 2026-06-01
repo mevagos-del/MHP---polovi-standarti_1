@@ -1,6 +1,6 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import type { Dictionaries, Employee, PlanInput } from '../../types/domain';
-import { savePlan } from '../../services/plans/planService';
+import { activeStorageAdapter } from '../../services/storage/storageAdapter';
 import ActivityCard from './ActivityCard';
 import EmployeeAutocomplete from './EmployeeAutocomplete';
 
@@ -72,7 +72,7 @@ function PlanningForm({ dictionaries, onPlanSaved, onSelectionChange }: Props) {
     return Object.keys(nextErrors).length === 0;
   };
 
-  const handleSubmit = (event: FormEvent) => {
+  const handleSubmit = async (event: FormEvent) => {
     event.preventDefault();
     setMessage(null);
 
@@ -91,27 +91,31 @@ function PlanningForm({ dictionaries, onPlanSaved, onSelectionChange }: Props) {
       comment: form.comment.trim(),
     };
 
-    const result = savePlan(input, () => window.confirm(
-      'План для цього користувача, каналу та місяця вже існує. Бажаєте оновити актуальний план?',
-    ));
+    try {
+      const result = await activeStorageAdapter.savePlan(input, () => window.confirm(
+        'План для цього користувача, каналу та місяця вже існує. Бажаєте оновити актуальний план?',
+      ));
 
-    if (result.status === 'cancelled') {
-      return;
+      if (result.status === 'cancelled') {
+        return;
+      }
+
+      setForm((current) => ({
+        ...current,
+        monthCode: '',
+        auditsCount: '',
+        adminDaysCount: '',
+        negotiationsCount: '',
+        comment: '',
+      }));
+      setMessage({
+        type: 'success',
+        text: result.status === 'created' ? 'План успішно збережено.' : 'План успішно оновлено.',
+      });
+      onPlanSaved();
+    } catch {
+      setMessage({ type: 'error', text: 'Не вдалося зберегти план. Перевірте підключення до сховища даних.' });
     }
-
-    setForm((current) => ({
-      ...current,
-      monthCode: '',
-      auditsCount: '',
-      adminDaysCount: '',
-      negotiationsCount: '',
-      comment: '',
-    }));
-    setMessage({
-      type: 'success',
-      text: result.status === 'created' ? 'План успішно збережено.' : 'План успішно оновлено.',
-    });
-    onPlanSaved();
   };
 
   return (

@@ -92,6 +92,71 @@ VITE_SUPABASE_URL=
 VITE_SUPABASE_ANON_KEY=
 ```
 
+## Supabase Setup
+
+1. Create a new project in Supabase.
+2. Open `SQL Editor`.
+3. Paste and run [supabase/schema.sql](supabase/schema.sql).
+4. Open `Project Settings` -> `API`.
+5. Copy the Project URL and anon public key.
+6. Create a local `.env` file from `.env.example`:
+
+```bash
+cp .env.example .env
+```
+
+7. Fill in:
+
+```text
+VITE_SUPABASE_URL=your_supabase_project_url
+VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
+```
+
+8. Restart the dev server.
+
+When both variables exist, the app uses Supabase. When either variable is missing, the app automatically falls back to localStorage demo mode and shows:
+
+```text
+Демо-режим: дані зберігаються локально в браузері.
+```
+
+## Vercel Environment Variables
+
+In Vercel, add the same variables in `Project Settings` -> `Environment Variables`:
+
+- `VITE_SUPABASE_URL`
+- `VITE_SUPABASE_ANON_KEY`
+
+Redeploy after adding or changing them.
+
+## Supabase Mode Test
+
+1. Configure `.env`.
+2. Run `npm run dev`.
+3. Unlock `Адмін-панель` with demo PIN `2468`.
+4. Import `Field Standards - Dictionaries.xlsx`.
+5. Create a new plan.
+6. Create the same channel + employee + month again and confirm update.
+7. Check Supabase tables:
+   - `current_plans` has one row for the unique key with incremented version.
+   - `change_log` has multiple versions, only the latest has `is_current = true`.
+8. Export current plans and change log for the selected month.
+
+## localStorage Fallback Test
+
+1. Remove or rename `.env`.
+2. Restart the dev server.
+3. Confirm the demo-mode note is visible.
+4. Repeat plan creation, update, dictionary import, and exports.
+5. Confirm data persists only in the current browser.
+
+## Security Notes
+
+The Admin PIN is only a lightweight MVP access gate and is not production security.
+Production rollout must use Supabase Auth, Microsoft SSO, or another real authentication provider.
+
+RLS is not enabled by the MVP schema. Before using real data, enable Row Level Security and add policies for dictionaries, current plans, and change log access.
+
 ## Dictionary Excel Format
 
 File name: `Field Standards - Dictionaries.xlsx`.
@@ -121,3 +186,12 @@ Rows with `isActive` not equal to `TRUE` are ignored. `Users.channelCode` must e
 - CSV exports use UTF-8 BOM and semicolon separator.
 - PWA manifest is available.
 - Production build completes.
+- localStorage demo mode works without `.env`.
+- Supabase mode works when both env variables are configured.
+- First plan creation inserts `current_plans` and `change_log`.
+- Repeated plan update increments version and updates latest change log state.
+- Admin current plans export reads the active storage mode.
+- Admin change log export reads the active storage mode.
+- Dictionary import updates Supabase dictionaries without deleting planning history.
+- Dictionary import still works in localStorage fallback mode.
+- Vercel deployment works with configured env variables.
