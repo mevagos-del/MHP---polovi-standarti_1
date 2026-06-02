@@ -186,6 +186,75 @@ Production rollout must use Supabase Auth, Microsoft SSO, or another real authen
 
 RLS is not enabled by the MVP schema. Before using real data, enable Row Level Security and add policies for dictionaries, current plans, and change log access.
 
+## Actual Performance Import
+
+Admin panel supports actual performance import from one Excel file:
+
+```text
+Field Standards - Actuals.xlsx
+```
+
+Required sheet:
+
+- `Actuals`
+
+Required columns:
+
+- `period`
+- `channelCode`
+- `fullName`
+- `actualAuditsStoreChecks`
+- `actualAdministrativeDays`
+- `actualNegotiations`
+- `comment`
+
+The app validates that `channelCode` exists in channels and `fullName` exists in employees for the selected channel. Actual values must be integers `>= 0`.
+
+Actual data is stored separately from plans:
+
+- Plans: `current_plans`
+- Actuals: `actual_performance`
+
+Analytics and recommendations always use plan values only from `current_plans` and actual values only from `actual_performance`, joined by:
+
+```text
+period + channel_id + employee_id
+```
+
+If actuals are imported for an employee/month without an entered plan, that row is not shown as a normal user analytics card. It can appear in the admin Plan Fact export with empty plan fields.
+
+## Plan Fact Analytics
+
+Regular users have two tabs:
+
+- `Внесення плану`
+- `Динаміка виконання`
+
+`Внесення плану` keeps the existing planning form and adds compact planning recommendations based on the latest previous month where both plan and fact exist.
+
+`Динаміка виконання` shows a modern plan/fact dashboard with:
+
+- overall completion percentage
+- status badge
+- progress bars for audits/store checks, administrative days, negotiations
+- monthly dynamics for the selected channel + employee
+
+## Plan Fact Export
+
+Admin export includes a third button:
+
+```text
+Експорт план-факт
+```
+
+File name:
+
+```text
+Field Standards - Plan Fact - [selected month].csv
+```
+
+CSV is Excel-compatible, UTF-8 BOM encoded, and uses semicolon separators.
+
 ## Dictionary Excel Format
 
 File name: `Field Standards - Dictionaries.xlsx`.
@@ -224,3 +293,10 @@ Rows with `isActive` not equal to `TRUE` are ignored. `Users.channelCode` must e
 - Dictionary import updates Supabase dictionaries without deleting planning history.
 - Dictionary import still works in localStorage fallback mode.
 - Vercel deployment works with configured env variables.
+- Run updated `supabase/schema.sql` and confirm `actual_performance` exists.
+- Import `Field Standards - Actuals.xlsx` from admin panel.
+- Confirm repeated actual import updates the same `period + channel + employee` row.
+- Confirm recommendations use previous plans from `current_plans` and previous facts from `actual_performance`.
+- Confirm `Динаміка виконання` shows only records with plans created in the planning tab.
+- Confirm missing actuals show `Факт ще не завантажено` and status `Немає факту`.
+- Confirm Plan Fact export works and existing Current Plans / Change Log exports still work.
