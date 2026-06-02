@@ -83,6 +83,35 @@ npm run build
 4. Build command: `npm run build`.
 5. Output directory: `dist`.
 
+## PWA Update Troubleshooting
+
+The service worker uses network-first navigation and does not permanently cache `index.html` or Vite hashed JS/CSS assets. This prevents installed PWAs from loading old `index-*.js` or `index-*.css` files after a Vercel redeploy.
+
+If a user still sees a blank screen from an older installed PWA version, perform a one-time cleanup:
+
+1. Open the site in Chrome or Edge.
+2. Open DevTools -> Application.
+3. Go to Service Workers and click `Unregister`.
+4. Go to Storage and click `Clear site data`.
+5. Close and reopen the PWA or reinstall it from the updated site.
+
+Alternative quick cleanup:
+
+1. Open browser settings.
+2. Find Site settings / All sites.
+3. Search for the deployed Vercel domain.
+4. Clear storage for that site.
+5. Reopen the app.
+
+Vercel update test:
+
+1. Deploy the app to Vercel.
+2. Open the site normally and install the PWA.
+3. Make another deployment.
+4. Reopen the installed PWA.
+5. Confirm the app loads without a blank screen.
+6. In DevTools Network, confirm there are no 404 requests for old `index-*.js` or `index-*.css` files.
+
 ## Future Supabase Environment Variables
 
 Do not commit real values. Future production setup can use:
