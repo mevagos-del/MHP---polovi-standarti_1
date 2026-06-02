@@ -63,9 +63,25 @@ create table if not exists change_log (
   changed_at timestamptz not null default now()
 );
 
+create table if not exists actual_performance (
+  id uuid primary key default gen_random_uuid(),
+  period text not null,
+  channel_id uuid not null references channels(id),
+  employee_id uuid not null references employees(id),
+  actual_audits_count integer not null check (actual_audits_count >= 0),
+  actual_admin_days_count integer not null check (actual_admin_days_count >= 0),
+  actual_negotiations_count integer not null check (actual_negotiations_count >= 0),
+  comment text not null default '',
+  source text not null default 'Excel',
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  unique (period, channel_id, employee_id)
+);
+
 create index if not exists idx_employees_channel_id on employees(channel_id);
 create index if not exists idx_current_plans_lookup on current_plans(period, channel_id, employee_id);
 create index if not exists idx_change_log_lookup on change_log(period, channel_id, employee_id);
+create index if not exists idx_actual_performance_lookup on actual_performance(period, channel_id, employee_id);
 
 create or replace function set_updated_at()
 returns trigger as $$
@@ -93,4 +109,9 @@ for each row execute function set_updated_at();
 drop trigger if exists set_current_plans_updated_at on current_plans;
 create trigger set_current_plans_updated_at
 before update on current_plans
+for each row execute function set_updated_at();
+
+drop trigger if exists set_actual_performance_updated_at on actual_performance;
+create trigger set_actual_performance_updated_at
+before update on actual_performance
 for each row execute function set_updated_at();
